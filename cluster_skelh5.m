@@ -157,6 +157,12 @@ Io = Io>0;
 skel = block3d({Io},[200 200 200],fullh,1,@Skeleton3D,[]);
 skel = padarray(skel,ones(1,3),0,'both');
 %%
+% estimate radius
+Io = padarray(Io,ones(1,3),0,'both');
+bIo=bwdist(~Io);
+radskel = bIo.*single(skel);
+
+%%
 % get the edge pairs
 dims = size(skel);
 skelinds = find(skel);
@@ -193,14 +199,15 @@ it = 1;
 for idx = skelinds(:)'
     inds = idx + idxneig;
     hits = inds(skel(inds));
+    rad = radskel(idx);
     % crop back to original size
-    E{it} = [[idx*ones(length(hits),1) hits(:)]]';
+    E{it} = [[idx*ones(length(hits),1) hits(:) rad*ones(length(hits),1)]]';
     it = it+1;
 end
 edges = [E{:}]'; clear E
 
 %% map onto original graph
-inds = zeros(size(edges));
+inds = edges;%zeros(size(edges));
 for ii=1:2
     [xx,yy,zz] = ind2sub(dims,edges(:,ii)); % subs on appended crop
     subs = [xx(:),yy(:),zz(:)]-1; % to compansate crop;
@@ -227,7 +234,11 @@ end
 if isdeployed | 1
     %%
     fileID = fopen(outfile,'w');
-    fprintf(fileID,'%d %d\n',inds');
+    if size(inds,2)==2
+        fprintf(fileID,'%d %d\n',inds');
+    else
+        fprintf(fileID,'%d %d %.2f\n',inds');
+    end
     fclose(fileID);
 end
 end

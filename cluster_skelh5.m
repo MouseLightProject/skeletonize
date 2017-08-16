@@ -24,41 +24,51 @@ if ~isdeployed
     addpath(genpath('./common'))
 end
 if nargin<1
-    if 1
-        deployment
-    elseif 0
-        runlocal
+    if 0
+        sample='20170628'
+        myh5prob = '/prob0'
+        exp = sprintf('%s_%s',sample,myh5prob(2:end));
+        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
+        mysh = sprintf('%s_%s.sh',datestr(now,'ddmmyyHHMM'),exp)
+        deployment(configfile,mysh,myh5prob)
+    elseif 1
+        sample='20170628'
+        myh5prob = '/prob0'
+        exp = sprintf('%s_%s',sample,myh5prob(2:end));
+        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
+        %configfile = fullfile(pwd,'./config_files/20150619_octant12_prob0_config_skelh5.cfg');
+        runlocal(configfile,myh5prob)
     else
-    %%
-    configfile = '20150619_octant12_prob0_config_skelh5.cfg';
-    opt = configparser(configfile);
-
-    myh5 = opt.inputh5;%'/nobackup2/mouselight/cluster/stitching_experiments/renderedvolumes/GN1_tp1_nd4_overlapcut-hdf5_lev-5.h5'
-    myh5prob = opt.h5prob;%'/prob1'
-    outfile = 'test-1601.txt';
-    if opt.brainSize
-        brainSize = opt.brainSize;
-    else
-        inputinfo = h5info(myh5); % opt.inputh5 is redundant for cluster usage
-        if length(inputinfo.Groups)>1
-            brainSize = inputinfo.Datasets(1).Dataspace.Size;
+        %%
+        configfile = '20150619_octant12_prob0_config_skelh5.cfg';
+        opt = configparser(configfile);
+        
+        myh5 = opt.inputh5;%'/nobackup2/mouselight/cluster/stitching_experiments/renderedvolumes/GN1_tp1_nd4_overlapcut-hdf5_lev-5.h5'
+        myh5prob = opt.h5prob;%'/prob1'
+        outfile = 'test-1601.txt';
+        if opt.brainSize
+            brainSize = opt.brainSize;
         else
-            brainSize = inputinfo.Datasets.Dataspace.Size;
+            inputinfo = h5info(myh5); % opt.inputh5 is redundant for cluster usage
+            if length(inputinfo.Groups)>1
+                brainSize = inputinfo.Datasets(1).Dataspace.Size;
+            else
+                brainSize = inputinfo.Datasets.Dataspace.Size;
+            end
         end
-    end
-    opt.brainSize=brainSize;
-%%
-    probThr = opt.probThr;
-    fullh = opt.fullh;
-
-    BB = [1 500 1 500 1 500] + [7489 7489 3193 3193 1 1];
-    k=1.0e3;
-    bbox = createOverlapBox(brainSize,[k k k],fullh);
-    [aa,idx]=min(pdist2(BB,bbox))
-    
-    BB = bbox(idx,:); % make sure BB is a multiple of chunksize 
-    %%
-    cluster_skelh5(myh5,myh5prob,BB,outfile,configfile)
+        opt.brainSize=brainSize;
+        %%
+        probThr = opt.probThr;
+        fullh = opt.fullh;
+        
+        BB = [1 500 1 500 1 500] + [7489 7489 3193 3193 1 1];
+        k=1.0e3;
+        bbox = createOverlapBox(brainSize,[k k k],fullh);
+        [aa,idx]=min(pdist2(BB,bbox))
+        
+        BB = bbox(idx,:); % make sure BB is a multiple of chunksize
+        %%
+        cluster_skelh5(myh5,myh5prob,BB,outfile,configfile)
     end
 else
     opt = configparser(configfile);
@@ -78,7 +88,7 @@ if isdeployed
     inds = [];
     BB = eval(BB);
 else
-    BB = eval(BB);   
+    BB = eval(BB);
 end
 
 %%
@@ -221,7 +231,7 @@ if isdeployed | 1
     fclose(fileID);
 end
 end
-function runlocal
+function runlocal(configfile,myh5prob)
 %%
 % cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19/150619prob_octants12_prob0_lev-5.h5',...
 %     '/prob0','[12241,13040,5176,6325,811,1710]',...
@@ -229,34 +239,62 @@ function runlocal
 %     '/groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/config_files/20150619_octant12_prob0_config_skelh5.cfg')
 
 addpath(genpath('./common'))
-clear all
+% clear all
 %%
 clc
-configfile = fullfile(pwd,'./config_files/20150619_octant12_prob0_config_skelh5.cfg');
 opt = configparser(configfile);
 
 myh5 = opt.inputh5;
-inputinfo = h5info(myh5);
-numGroups = length(inputinfo.Datasets);
-idxGroup = 1;
-
-%
-if numGroups>1
-    myh5prob = ['/',inputinfo.Datasets(idxGroup).Name];
-    cropSize = 10*inputinfo.Datasets(idxGroup).ChunkSize;
-    % to get %10 overlap overhead use multiple of 10
-    fullh = inputinfo.Datasets(idxGroup).ChunkSize; % add 1 to make it odd (heuristic)
-    RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups(idxGroup).Name));
-    brainSize = inputinfo.Datasets(idxGroup).Dataspace.MaxSize;
-else
-    myh5prob = ['/',inputinfo.Datasets.Name];
-    cropSize = 10*inputinfo.Datasets.ChunkSize;
-    % to get %10 overlap overhead use multiple of 10
-    fullh = inputinfo.Datasets.ChunkSize; % add 1 to make it odd (heuristic)
-    RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups.Name));
-    brainSize = inputinfo.Datasets.Dataspace.MaxSize;
+if nargin<3
+    myh5prob = '/prob0'
 end
-%
+if 1
+%     fid = H5F.open(myh5);
+%     dset_id = H5D.open(fid,myh5prob);
+%     space = H5D.get_space(dset_id);
+%     [~,dims] = H5S.get_simple_extent_dims(space);
+%     H5S.close(space);
+%     
+%     dcpl = H5D.get_create_plist(dset_id);
+%     [rank,chunk_dims] = H5P.get_chunk(dcpl);
+%     H5P.close(dcpl);
+% 
+%     brainSize = dims([3 2 1]);
+%     chunk_dims = chunk_dims([3 2 1]);
+%     RR = h5read(myh5,[myh5prob,'_props/ROI']);
+%     
+%     cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+%     % to get %10 overlap overhead use multiple of 10
+%     fullh = chunk_dims; % add 1 to make it odd (heuristic)
+%     
+%     H5D.close(dset_id);
+%     H5F.close(fid);
+    [brainSize,RR,chunk_dims,rank] = h5parser(myh5,myh5prob);
+    cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+    % to get %10 overlap overhead use multiple of 10
+    fullh = chunk_dims; % add 1 to make it odd (heuristic)
+else
+    inputinfo = h5info(myh5)
+    numGroups = length(inputinfo.Datasets);
+    idxGroup = 1;
+    
+    %
+    if numGroups>1
+        myh5prob = ['/',inputinfo.Datasets(idxGroup).Name];
+        cropSize = 10*inputinfo.Datasets(idxGroup).ChunkSize;
+        % to get %10 overlap overhead use multiple of 10
+        fullh = inputinfo.Datasets(idxGroup).ChunkSize; % add 1 to make it odd (heuristic)
+        RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups(idxGroup).Name));
+        brainSize = inputinfo.Datasets(idxGroup).Dataspace.MaxSize;
+    else
+        myh5prob = ['/',inputinfo.Datasets.Name];
+        cropSize = 10*inputinfo.Datasets.ChunkSize;
+        % to get %10 overlap overhead use multiple of 10
+        fullh = inputinfo.Datasets.ChunkSize; % add 1 to make it odd (heuristic)
+        RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups.Name));
+        brainSize = inputinfo.Datasets.Dataspace.MaxSize;
+    end
+end%
 [aa,bb,cc]=fileparts(myh5);
 % outfolder = '/nobackup2/mouselight/cluster/GN1_autorecon_05/'
 outfolder = opt.outfolder;
@@ -301,7 +339,7 @@ if 1 % check any missing file
 end
 sum(finished)
 %%
-for idx = 1053%1:size(bbox,1)
+for idx = 1:size(bbox,1)
     %%
     %generate random string
     BB = sprintf('[%d %d %d %d %d %d]',bbox(idx,:));
@@ -316,17 +354,16 @@ for idx = 1053%1:size(bbox,1)
 end
 end
 
-function deployment
+function deployment(configfile,mysh,myh5prob)
 %qsub -pe batch 4 -l short=true -N tile_test -j y -o ~/logs -b y -cwd -V './compiledfiles_mytest/mytest > output_mytest.log'
 %%
 % mcc -m -R -nojvm -v cluster_skelh5.m -d ./compiled/compiledfiles_skelh5  -a ./common
 %%
 addpath(genpath('./common'))
-clear all
+% clear all
 clc
-numcores = 16;
-mysh = '20150619_oct12config_skelh5_miss.sh';
-configfile = fullfile(pwd,'./config_files/20150619_octant12_prob0_config_skelh5.cfg');
+numcores = 8;
+% mysh = '20150619_oct12config_skelh5_miss.sh';
 opt = configparser(configfile);
 %
 % myh5 = '/srv/data/probGN1_lvl-5.h5'
@@ -334,25 +371,56 @@ opt = configparser(configfile);
 % myh5prob='/renderedVolume'
 % myh5 = '/data3/renderedData/2015-07-11/2015-07-11-G3457_lev-3.h5'
 myh5 = opt.inputh5;
-inputinfo = h5info('/data3/renderedData/2015-06-19/150619prob_octants12_prob0_lev-5_chunk-111_111_masked-0.h5');
-numGroups = length(inputinfo.Datasets);
-idxGroup = 1;
+if nargin<3
+    myh5prob = '/prob0'
+end
+if 1
+%     fid = H5F.open(myh5);
+%     dset_id = H5D.open(fid,myh5prob);
+%     space = H5D.get_space(dset_id);
+%     [~,dims] = H5S.get_simple_extent_dims(space);
+%     H5S.close(space);
+%     
+%     dcpl = H5D.get_create_plist(dset_id);
+%     [rank,chunk_dims] = H5P.get_chunk(dcpl);
+%     H5P.close(dcpl);
+% 
+%     brainSize = dims([3 2 1]);
+%     chunk_dims = chunk_dims([3 2 1]);
+%     RR = h5read(myh5,[myh5prob,'_props/ROI']);
+%     
+%     cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+%     % to get %10 overlap overhead use multiple of 10
+%     fullh = chunk_dims; % add 1 to make it odd (heuristic)
+%     
+%     H5D.close(dset_id);
+%     H5F.close(fid);
+    [brainSize,RR,chunk_dims,rank] = h5parser(myh5,myh5prob);
+    cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+    % to get %10 overlap overhead use multiple of 10
+    fullh = chunk_dims; % add 1 to make it odd (heuristic)
 
-%
-if numGroups>1
-    myh5prob = ['/',inputinfo.Datasets(idxGroup).Name];
-    cropSize = 10*inputinfo.Datasets(idxGroup).ChunkSize;
-    % to get %10 overlap overhead use multiple of 10
-    fullh = inputinfo.Datasets(idxGroup).ChunkSize; % add 1 to make it odd (heuristic)
-    RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups(idxGroup).Name));
-    brainSize = inputinfo.Datasets(idxGroup).Dataspace.MaxSize;
 else
-    myh5prob = ['/',inputinfo.Datasets.Name];
-    cropSize = 10*inputinfo.Datasets.ChunkSize;
-    % to get %10 overlap overhead use multiple of 10
-    fullh = inputinfo.Datasets.ChunkSize; % add 1 to make it odd (heuristic)
-    RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups.Name));
-    brainSize = inputinfo.Datasets.Dataspace.MaxSize;
+    inputinfo = h5info(myh5)
+    numGroups = length(inputinfo.Datasets);
+    idxGroup = 1;
+    
+    %
+    if numGroups>1
+        myh5prob = ['/',inputinfo.Datasets(idxGroup).Name];
+        cropSize = 10*inputinfo.Datasets(idxGroup).ChunkSize;
+        % to get %10 overlap overhead use multiple of 10
+        fullh = inputinfo.Datasets(idxGroup).ChunkSize; % add 1 to make it odd (heuristic)
+        RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups(idxGroup).Name));
+        brainSize = inputinfo.Datasets(idxGroup).Dataspace.MaxSize;
+    else
+        myh5prob = ['/',inputinfo.Datasets.Name];
+        cropSize = 10*inputinfo.Datasets.ChunkSize;
+        % to get %10 overlap overhead use multiple of 10
+        fullh = inputinfo.Datasets.ChunkSize; % add 1 to make it odd (heuristic)
+        RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups.Name));
+        brainSize = inputinfo.Datasets.Dataspace.MaxSize;
+    end
 end
 %
 [aa,bb,cc]=fileparts(myh5);
@@ -411,35 +479,38 @@ for idx = 1:size(bbox,1)
     BB = bbox(idx,:);
     %% check if BB is outsize of BBoxes
     if ~in(idx) | finished(idx)% skip
-        (idx)
         continue
     end
     %%
     randString = s( ceil(rand(1,sLength)*numRands) );
     outfile = fullfile(outfolder,sprintf('%s_idx-%05d_stxyzendxyz-%d_%d_%d_%d_%d_%d.txt',bb,idx,BB(1:2:end),BB(2:2:end)));
     name = sprintf('skel_%05d-%s',idx,randString);
-    args = sprintf('''%s %s %s "[%d,%d,%d,%d,%d,%d]" %s %s''',compiledfunc,myh5,myh5prob,(BB),outfile,configfile);
-    mysub = sprintf('qsub -pe batch %d -l d_rt=%d -N %s -j y -o /dev/null -b y -cwd -V %s\n',numcores,timelim,name,args);
+    argsout = sprintf('''%s %s %s "[%d,%d,%d,%d,%d,%d]" %s %s''',compiledfunc,myh5,myh5prob,(BB),outfile,configfile);
+    % mysub = sprintf('qsub -pe batch %d -l d_rt=%d -N %s -j y -o /dev/null -b y -cwd -V %s\n',numcores,timelim,name,args);
+    mysub = sprintf('bsub -n%d -We %d -J %s -o %s %s\n',numcores,timelim/60,name,'/dev/null',argsout);
     fwrite(fid,mysub);
     iter=iter+1
 end
 unix(sprintf('chmod +x %s',mysh));
+fclose(fid)
+% %%
+% % test
 %%
-% test
-cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19_backup/20150619_oct12_prob0/150619prob_octants12_prob0_lev-5_chunk-111_111_masked-0.h5',...
-'/prob0','[8641,9840,775,1634,1,880]',...
-'/groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2015-06-19/octant12/prob0/150619prob_octants12_prob0_lev-5_chunk-111_111_masked-0_idx-00038_stxyzendxyz-8641_775_1_9840_1634_880.txt ',...
-'/groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2016-10-25/skel_prob0_cfgfiles/367.cfg')
-%%
-cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19/150619prob_octants12_prob0_lev-5.h5',...
-    '/prob0','[12241,13040,5176,6325,811,1710]',...
-    '/groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2015-06-19/oct12/prob0/150619prob_octants12_prob0_lev-5_idx-01158_stxyzendxyz-12241_5176_811_13040_6325_1710.txt',...
-    '/groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/config_files/20150619_octant12_prob0_config_skelh5.cfg')
-%%
-% (myh5,myh5prob,BB,outfile,configfile)
-% mcc -m -R -nojvm -v cluster_skelh5.m -d ./compiled/compiledfiles_skelh5  -a ./common
-qsub -pe batch 4 -l short=true -N skel_00046-T9wrzWzvoB -j y -o ~/logs -b y -cwd -V './compiled/compiledfiles_skelh5/cluster_skelh5 /nobackup2/mouselight/cluster/stitching_experiments/renderedvolumes/GN1_tp1_nd4_minopt_lev-5.h5 /prob1 "[10369,11088,1027,2166,1,1040]" /groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2015-06-19/GN1/prob1/GN1_tp1_nd4_minopt_lev-5_idx-00046_stxyzendxyz-10369_1027_1_11088_2166_1040.txt ./config_files/cmp3_config_skelh5.cfg> output.log'
-
+cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19_backup/20150619_oct12_prob0_FC/150619prob_octants12_prob0_FC_lev-5_chunk-111_111_masked-0.h5',...
+'/prob0','[10801,12000,6193,7052,1585,2464]',...
+'./test.txt',...
+'/groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/config_files/20150619_octant12_prob0_config_skelh5.cfg')
+% /groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2015-06-19/octant12/prob0/150619prob_octants12_prob0_FC_lev-5_chunk-111_111_masked-0_idx-01113_stxyzendxyz-10801_6193_1585_12000_7052_2464.txt
+% %%
+% cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19/150619prob_octants12_prob0_lev-5.h5',...
+%     '/prob0','[12241,13040,5176,6325,811,1710]',...
+%     '/groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2015-06-19/oct12/prob0/150619prob_octants12_prob0_lev-5_idx-01158_stxyzendxyz-12241_5176_811_13040_6325_1710.txt',...
+%     '/groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/config_files/20150619_octant12_prob0_config_skelh5.cfg')
+% %%
+% % (myh5,myh5prob,BB,outfile,configfile)
+% % mcc -m -R -nojvm -v cluster_skelh5.m -d ./compiled/compiledfiles_skelh5  -a ./common
+% qsub -pe batch 4 -l short=true -N skel_00046-T9wrzWzvoB -j y -o ~/logs -b y -cwd -V './compiled/compiledfiles_skelh5/cluster_skelh5 /nobackup2/mouselight/cluster/stitching_experiments/renderedvolumes/GN1_tp1_nd4_minopt_lev-5.h5 /prob1 "[10369,11088,1027,2166,1,1040]" /groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2015-06-19/GN1/prob1/GN1_tp1_nd4_minopt_lev-5_idx-00046_stxyzendxyz-10369_1027_1_11088_2166_1040.txt ./config_files/cmp3_config_skelh5.cfg> output.log'
+%
 
 
 end

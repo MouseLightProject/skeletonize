@@ -24,20 +24,18 @@ if ~isdeployed
     addpath(genpath('./common'))
 end
 if nargin<1
-    if 0
-        sample='20170628'
-        myh5prob = '/prob0'
+    if 1
+        sample='20170810'
+        myh5prob = '/prob1'
         exp = sprintf('%s_%s',sample,myh5prob(2:end));
-        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
-        mysh = sprintf('%s_%s.sh',datestr(now,'ddmmyyHHMM'),exp)
-        deployment(configfile,mysh,myh5prob)
-    elseif 1
-        sample='20170628'
-        myh5prob = '/prob0'
-        exp = sprintf('%s_%s',sample,myh5prob(2:end));
-        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
-        %configfile = fullfile(pwd,'./config_files/20150619_octant12_prob0_config_skelh5.cfg');
-        runlocal(configfile,myh5prob)
+        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5_thr.cfg',exp));
+        if 1
+            mysh = sprintf('%s_%s.sh',datestr(now,'ddmmyyHHMM'),exp)
+            deployment(configfile,mysh,myh5prob)
+            stop = 1;
+        else
+            runlocal(configfile,myh5prob)
+        end
     else
         %%
         configfile = '20150619_octant12_prob0_config_skelh5.cfg';
@@ -74,12 +72,18 @@ else
     opt = configparser(configfile);
     probThr = opt.probThr;
     fullh = opt.fullh;
+    
+    %     cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+    %     % to get %10 overlap overhead use multiple of 10
+    %     fullh = chunk_dims; % add 1 to make it odd (heuristic)
+    
     % check if brainsize is provided
-    if opt.brainSize
+    if isfield(opt,'brainsize')
         brainSize = opt.brainSize;
     else
-        inputinfo = h5info(myh5); % opt.inputh5 is redundant for cluster usage
-        brainSize = inputinfo.Datasets.Dataspace.Size;
+        [brainSize,RR,chunk_dims,rank] = h5parser(opt.inputh5,opt.h5prob);
+        %         inputinfo = h5info(myh5); % opt.inputh5 is redundant for cluster usage
+        %         brainSize = inputinfo.Datasets.Dataspace.Size;
         opt.brainSize=brainSize;
     end
 end
@@ -160,7 +164,7 @@ skel = padarray(skel,ones(1,3),0,'both');
 % estimate radius
 Io = padarray(Io,ones(1,3),0,'both');
 bIo=bwdist(~Io);
-radskel = bIo.*single(skel);
+radskel = double(bIo.*single(skel));
 
 %%
 % get the edge pairs
@@ -257,7 +261,7 @@ opt = configparser(configfile);
 
 myh5 = opt.inputh5;
 if nargin<3
-    myh5prob = '/prob0'
+    myh5prob = opt.h5prob
 end
 if 1
 %     fid = H5F.open(myh5);
@@ -281,7 +285,8 @@ if 1
 %     H5D.close(dset_id);
 %     H5F.close(fid);
     [brainSize,RR,chunk_dims,rank] = h5parser(myh5,myh5prob);
-    cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+    cropSize = round(1000./chunk_dims).*chunk_dims;
+    %cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
     % to get %10 overlap overhead use multiple of 10
     fullh = chunk_dims; % add 1 to make it odd (heuristic)
 else
@@ -369,6 +374,7 @@ function deployment(configfile,mysh,myh5prob)
 %qsub -pe batch 4 -l short=true -N tile_test -j y -o ~/logs -b y -cwd -V './compiledfiles_mytest/mytest > output_mytest.log'
 %%
 % mcc -m -R -nojvm -v cluster_skelh5.m -d ./compiled/compiledfiles_skelh5  -a ./common
+% mcc -m -R -nojvm -v /groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/cluster_skelh5.m -d /groups/mousebrainmicro/home/base/CODE/MATLAB/compiledfunctions/skeletonization -a /groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/common
 %%
 addpath(genpath('./common'))
 % clear all
@@ -407,7 +413,9 @@ if 1
 %     H5D.close(dset_id);
 %     H5F.close(fid);
     [brainSize,RR,chunk_dims,rank] = h5parser(myh5,myh5prob);
-    cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+    % get a multiple of chunksize that is around 1000^3
+    cropSize = round(1000./chunk_dims).*chunk_dims;
+    % cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
     % to get %10 overlap overhead use multiple of 10
     fullh = chunk_dims; % add 1 to make it odd (heuristic)
 
@@ -444,7 +452,14 @@ unix(sprintf('chmod g+rwx %s',outfolder));
 %
 % rmdir(outfolder)
 s = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-compiledfunc = '/groups/mousebrainmicro/home/base/CODE/MATLAB/recontree/compiled/compiledfiles_skelh5/cluster_skelh5'
+old = 0;
+if old
+    compiledfunc = '/groups/mousebrainmicro/home/base/CODE/MATLAB/recontree/compiled/compiledfiles_skelh5/cluster_skelh5'
+else
+    compiledfunc = '/groups/mousebrainmicro/home/base/CODE/MATLAB/compiledfunctions/skeletonization/cluster_skelh5'
+end
+
+
 %find number of random characters to choose from
 numRands = length(s);
 %specify length of random string to generate
@@ -507,10 +522,10 @@ fclose(fid)
 % %%
 % % test
 %%
-cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19_backup/20150619_oct12_prob0_FC/150619prob_octants12_prob0_FC_lev-5_chunk-111_111_masked-0.h5',...
-'/prob0','[10801,12000,6193,7052,1585,2464]',...
-'./test.txt',...
-'/groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/config_files/20150619_octant12_prob0_config_skelh5.cfg')
+% cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19_backup/20150619_oct12_prob0_FC/150619prob_octants12_prob0_FC_lev-5_chunk-111_111_masked-0.h5',...
+% '/prob0','[10801,12000,6193,7052,1585,2464]',...
+% './test.txt',...
+% '/groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/config_files/20150619_octant12_prob0_config_skelh5.cfg')
 % /groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/2015-06-19/octant12/prob0/150619prob_octants12_prob0_FC_lev-5_chunk-111_111_masked-0_idx-01113_stxyzendxyz-10801_6193_1585_12000_7052_2464.txt
 % %%
 % cluster_skelh5('/nrs/mouselight/cluster/classifierOutputs/2015-06-19/150619prob_octants12_prob0_lev-5.h5',...

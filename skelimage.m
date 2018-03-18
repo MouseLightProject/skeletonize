@@ -1,9 +1,38 @@
-
+function skelimage()
+%%
 % Io = squeeze(h5read(myh5,myh5prob,starts,datasiz));
 % function emptyvol = skelimage(Io,BB,brainSize)
 
-calculated_parameters = '/nrs/mouselight/SAMPLES/2016-07-18b/calculated_parameters.jl'
-params = readparams(calculated_parameters)
+calculated_parameters = '/nrs/mouselight/SAMPLES/2017-10-31/calculated_parameters.jl';
+transform_parameters =  '/nrs/mouselight/SAMPLES/2017-10-31/transform.txt';
+configfile = 'configfile.cfg';
+h5file = '/nrs/mouselight/cluster/classifierOutputs/2017-10-31/20171031_prob0/20171031_prob0_lev-6_chunk-111_111_masked-0.h5';
+h5datanama = '/prob0';
+%%
+params_config = configparser(configfile);
+params_config.thr=25;
+
+mkdir(fullfile(params_config.outfolder,'full'))
+mkdir(fullfile(params_config.outfolder,'frags'))
+
+params_trans = configparser(transform_parameters);
+params_trans.level = params_trans.nl-1;
+params_trans.voxres = [params_trans.sx params_trans.sy params_trans.sz]/2^(params_trans.level)/1e3; % in um
+
+% opt.params = params_trans;
+% opt.inputh5 = h5file;
+% opt.thr = 25;
+% opt.sizethreshold = 100;
+% opt.outfolder = './skelfulltest'
+
+% %%
+% h5datanama = '/prob0';
+% try
+%     [brainSize,RR,chunk_dims,rank] = h5parser(opt.inputh5,h5datanama);
+% catch
+%     
+% end
+
 %% load BB
 %%%%%%%%%%%%%%%%
 % read calculated_parameters.jl file
@@ -11,13 +40,25 @@ params = readparams(calculated_parameters)
 % 1) read octtree
 % 2) read padding
 % 3) run 
-grabData(inputfolder,params)
+% grabData(inputfolder,params)
+
+%% skeletonization
+W = [100 100 100];
+pixloc = um2pix(params_trans,[69042.8, 48623.1, 18259.9])
+starts = pixloc - W;
+datasiz = 2*W+1;
+Io = squeeze(h5read(h5file,h5datanama,starts,datasiz));
 
 
+[skel,A,subs,edges_] = skeletonimage(Io,params_config);
+figure, imshow3D(Io)
+hold on
+gplot3(A,subs(:,[2 1 3]))
 
-%%
-[edges,subs] = skeletonimage(Io);
-inds = edges;%zeros(size(edges));
+%% reconstruction
+G = graph(A);
+params_config.params = params_trans;
+workflow1(G,subs,params_config)
 
 %%
 subs = subs + ones(size(subs,1),1)*BB(1:2:end)-1; % convert to original subs
@@ -50,7 +91,7 @@ if isdeployed | 1
     end
     fclose(fileID);
 end
-
+end
 function params = readparams(calculated_parameters)
 fid=fopen(calculated_parameters);
 clear params
@@ -74,7 +115,7 @@ end
 fclose(fid);
 end
 
-function [edges,subs] = skeletonimage(Io)
+function [skel,A,subs_,edges_] = skeletonimage(Io,opt)
 % given input image
 % Io = squeeze(h5read(myh5,myh5prob,starts+[500 300 100],datasiz));
 % figure, imshow(squeeze(max(Io,[],3))',[]),
@@ -87,7 +128,8 @@ if ~any(Io(:))
     end
     return
 end
-
+probThr = opt.thr;
+fullh = opt.fullh;
 % smooth image
 Io = smooth3(Io,'gaussian',[3 3 1]);
 Io = Io>probThr;
@@ -137,9 +179,8 @@ Io = Io>0;
 % run skeletonization
 % if size(Io) is big limit memory by using less number of nodes
 skel = block3d({Io},[200 200 200],fullh,1,@Skeleton3D,[]);
-skel = padarray(skel,ones(1,3),0,'both');
-%%
 % estimate radius
+skel = padarray(skel,ones(1,3),0,'both');
 Io = padarray(Io,ones(1,3),0,'both');
 bIo=bwdist(~Io);
 radskel = double(bIo.*single(skel));
@@ -188,10 +229,20 @@ for idx = skelinds(:)'
     it = it+1;
 end
 edges = [E{:}]'; clear E
-
 %% map onto original graph
 for ii=1:2
     [xx,yy,zz] = ind2sub(dims,edges(:,ii)); % subs on appended crop
     subs = [xx(:),yy(:),zz(:)]-1; % to compansate crop;
+    edges(:,ii) = sub2ind(dims-1,subs(:,1),subs(:,2),subs(:,3));
 end
+% [xx,yy,zz] = ind2sub(dims,edges(:,1)); % subs on appended crop
+% subs = [xx(:),yy(:),zz(:)]-1; % to compansate crop;
+
+clear subs_
+[keepthese,ia,ic] = unique(edges(:,[1 2]));
+[subs_(:,1),subs_(:,2),subs_(:,3)] = ind2sub(dims-1,keepthese);
+edges_ = reshape(ic,[],2);
+weights_ = edges(ia,3:end);
+A = sparse(edges_(:,1),edges_(:,2),1,max(edges_(:,2)),max(edges_(:,2)));
+skel = skel(2:end-1,2:end-1,2:end-1);
 end

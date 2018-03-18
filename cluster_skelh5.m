@@ -25,10 +25,10 @@ if ~isdeployed
 end
 if nargin<1
     if 1
-        sample='20170810'
-        myh5prob = '/prob1'
+        sample='20180309'
+        myh5prob = '/prob0'
         exp = sprintf('%s_%s',sample,myh5prob(2:end));
-        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5_thr.cfg',exp));
+        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
         if 1
             mysh = sprintf('%s_%s.sh',datestr(now,'ddmmyyHHMM'),exp)
             deployment(configfile,mysh,myh5prob)
@@ -497,7 +497,7 @@ if 1 % check any missing file
 end
 sum(~finished)
 %%
-iter=0
+iter=0;
 fid = fopen(mysh,'w');
 for idx = 1:size(bbox,1)
     %%

@@ -3,10 +3,10 @@ function skelimage()
 % Io = squeeze(h5read(myh5,myh5prob,starts,datasiz));
 % function emptyvol = skelimage(Io,BB,brainSize)
 
-calculated_parameters = '/nrs/mouselight/SAMPLES/2017-10-31/calculated_parameters.jl';
-transform_parameters =  '/nrs/mouselight/SAMPLES/2017-10-31/transform.txt';
+% calculated_parameters = '/nrs/mouselight/SAMPLES/2017-10-31/calculated_parameters.jl';
+transform_parameters =  '/nrs/mouselight/SAMPLES/2017-09-25/transform.txt';
 configfile = 'configfile.cfg';
-h5file = '/nrs/mouselight/cluster/classifierOutputs/2017-10-31/20171031_prob0/20171031_prob0_lev-6_chunk-111_111_masked-0.h5';
+h5file = '/nrs/mouselight/cluster/classifierOutputs/2017-09-25/20170925_prob0/20170925_prob0_lev-6_chunk-111_111_masked-0.h5';
 h5datanama = '/prob0';
 %%
 params_config = configparser(configfile);
@@ -44,16 +44,18 @@ params_trans.voxres = [params_trans.sx params_trans.sy params_trans.sz]/2^(param
 
 %% skeletonization
 W = [100 100 100];
-pixloc = um2pix(params_trans,[69042.8, 48623.1, 18259.9])
+pixloc = um2pix(params_trans,[74167.3, 14663.3, 34743.9])
 starts = pixloc - W;
 datasiz = 2*W+1;
 Io = squeeze(h5read(h5file,h5datanama,starts,datasiz));
 
 
 [skel,A,subs,edges_] = skeletonimage(Io,params_config);
-figure, imshow3D(Io)
+% figure, imshow3D(Io)
+%%
+figure, imshow(max(Io,[],3)',[])
 hold on
-gplot3(A,subs(:,[2 1 3]))
+gplot3(A,subs(:,[1 2 3]))
 
 %% reconstruction
 G = graph(A);

@@ -25,7 +25,7 @@ if ~isdeployed
 end
 if nargin<1
     if 1
-        sample='20180309'
+        sample='20180702'
         myh5prob = '/prob0'
         exp = sprintf('%s_%s',sample,myh5prob(2:end));
         configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
@@ -38,33 +38,32 @@ if nargin<1
         end
     else
         %%
-        configfile = '20150619_octant12_prob0_config_skelh5.cfg';
+        sample='20170925'
+        myh5prob = '/prob0'
+        exp = sprintf('%s_%s',sample,myh5prob(2:end));
+        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
         opt = configparser(configfile);
         
         myh5 = opt.inputh5;%'/nobackup2/mouselight/cluster/stitching_experiments/renderedvolumes/GN1_tp1_nd4_overlapcut-hdf5_lev-5.h5'
         myh5prob = opt.h5prob;%'/prob1'
         outfile = 'test-1601.txt';
-        if opt.brainSize
-            brainSize = opt.brainSize;
-        else
-            inputinfo = h5info(myh5); % opt.inputh5 is redundant for cluster usage
-            if length(inputinfo.Groups)>1
-                brainSize = inputinfo.Datasets(1).Dataspace.Size;
-            else
-                brainSize = inputinfo.Datasets.Dataspace.Size;
-            end
-        end
+        
+        [brainSize,RR,chunk_dims,rank] = h5parser(myh5,myh5prob);
+        % get a multiple of chunksize that is around 1000^3
+        cropSize = round(1000./chunk_dims).*chunk_dims;
+        % cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+        % to get %10 overlap overhead use multiple of 10
+        fullh = chunk_dims; % add 1 to make it odd (heuristic)
         opt.brainSize=brainSize;
         %%
         probThr = opt.probThr;
         fullh = opt.fullh;
-        
-        BB = [1 500 1 500 1 500] + [7489 7489 3193 3193 1 1];
-        k=1.0e3;
-        bbox = createOverlapBox(brainSize,[k k k],fullh);
-        [aa,idx]=min(pdist2(BB,bbox))
-        
-        BB = bbox(idx,:); % make sure BB is a multiple of chunksize
+
+%         k=1.0e3;
+%         bbox = createOverlapBox(brainSize,[k k k],fullh);
+%         [aa,idx]=min(pdist2(BB,bbox))
+%         BB = bbox(idx,:); % make sure BB is a multiple of chunksize
+        BB = '[19153,20178,9601,10640,1921,2960]';
         %%
         cluster_skelh5(myh5,myh5prob,BB,outfile,configfile)
     end
@@ -160,6 +159,15 @@ Io = Io>0;
 % if size(Io) is big limit memory by using less number of nodes
 skel = block3d({Io},[200 200 200],fullh,1,@Skeleton3D,[]);
 skel = padarray(skel,ones(1,3),0,'both');
+% Heuristic: 0 out boundary pixels to prevent replicating skels in the
+% overlaping region
+s = round((fullh+1)/2);
+skel(1:s,:,:) = 0;
+skel(end-s+1:end,:,:) = 0;
+skel(:,1:s,:) = 0;
+skel(:,end-s+1:end,:) = 0;
+skel(:,:,1:s) = 0;
+skel(:,:,end-s+1:end) = 0;
 %%
 % estimate radius
 Io = padarray(Io,ones(1,3),0,'both');
@@ -392,54 +400,12 @@ if nargin<3
     myh5prob = '/prob0'
 end
 if 1
-%     fid = H5F.open(myh5);
-%     dset_id = H5D.open(fid,myh5prob);
-%     space = H5D.get_space(dset_id);
-%     [~,dims] = H5S.get_simple_extent_dims(space);
-%     H5S.close(space);
-%     
-%     dcpl = H5D.get_create_plist(dset_id);
-%     [rank,chunk_dims] = H5P.get_chunk(dcpl);
-%     H5P.close(dcpl);
-% 
-%     brainSize = dims([3 2 1]);
-%     chunk_dims = chunk_dims([3 2 1]);
-%     RR = h5read(myh5,[myh5prob,'_props/ROI']);
-%     
-%     cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
-%     % to get %10 overlap overhead use multiple of 10
-%     fullh = chunk_dims; % add 1 to make it odd (heuristic)
-%     
-%     H5D.close(dset_id);
-%     H5F.close(fid);
     [brainSize,RR,chunk_dims,rank] = h5parser(myh5,myh5prob);
     % get a multiple of chunksize that is around 1000^3
     cropSize = round(1000./chunk_dims).*chunk_dims;
     % cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
     % to get %10 overlap overhead use multiple of 10
     fullh = chunk_dims; % add 1 to make it odd (heuristic)
-
-else
-    inputinfo = h5info(myh5)
-    numGroups = length(inputinfo.Datasets);
-    idxGroup = 1;
-    
-    %
-    if numGroups>1
-        myh5prob = ['/',inputinfo.Datasets(idxGroup).Name];
-        cropSize = 10*inputinfo.Datasets(idxGroup).ChunkSize;
-        % to get %10 overlap overhead use multiple of 10
-        fullh = inputinfo.Datasets(idxGroup).ChunkSize; % add 1 to make it odd (heuristic)
-        RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups(idxGroup).Name));
-        brainSize = inputinfo.Datasets(idxGroup).Dataspace.MaxSize;
-    else
-        myh5prob = ['/',inputinfo.Datasets.Name];
-        cropSize = 10*inputinfo.Datasets.ChunkSize;
-        % to get %10 overlap overhead use multiple of 10
-        fullh = inputinfo.Datasets.ChunkSize; % add 1 to make it odd (heuristic)
-        RR = h5read(myh5,sprintf('%s/ROI',inputinfo.Groups.Name));
-        brainSize = inputinfo.Datasets.Dataspace.MaxSize;
-    end
 end
 %
 [aa,bb,cc]=fileparts(myh5);
@@ -465,10 +431,6 @@ numRands = length(s);
 %specify length of random string to generate
 sLength = 10;
 %-o /dev/null
-% chunck data
-%
-% fullh = opt.fullh; % 15
-%
 
 bbox = createOverlapBox(brainSize,cropSize,fullh);
 % bbox = createOverlapBox(brainSize,[cropSize cropSize cropSize],fullh);
@@ -485,7 +447,7 @@ XYZ = unique([X(:),Y(:),Z(:)],'rows');
 in = inhull([bbox(:,1:2:end);bbox(:,2:2:end)],XYZ);
 in = any(reshape(in,[],2),2);
 %
-timelim = 5*60
+timelim = 10*60
 finished = zeros(1,size(bbox,1));
 
 if 1 % check any missing file
@@ -513,9 +475,10 @@ for idx = 1:size(bbox,1)
     name = sprintf('skel_%05d-%s',idx,randString);
     argsout = sprintf('''%s %s %s "[%d,%d,%d,%d,%d,%d]" %s %s''',compiledfunc,myh5,myh5prob,(BB),outfile,configfile);
     % mysub = sprintf('qsub -pe batch %d -l d_rt=%d -N %s -j y -o /dev/null -b y -cwd -V %s\n',numcores,timelim,name,args);
-    mysub = sprintf('bsub -n%d -We %d -J %s -o %s %s\n',numcores,timelim/60,name,'/dev/null',argsout);
+    mysub = sprintf('bsub -n%d -R"affinity[core(1)]" -We %d -J %s -o %s %s\n',numcores,timelim/60,name,'/dev/null',argsout);
     fwrite(fid,mysub);
-    iter=iter+1
+    iter=iter+1;
+    sprintf('iter: %d',iter)
 end
 unix(sprintf('chmod +x %s',mysh));
 fclose(fid)

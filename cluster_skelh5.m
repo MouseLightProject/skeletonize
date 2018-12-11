@@ -25,7 +25,7 @@ if ~isdeployed
 end
 if nargin<1
     if 1
-        sample='20180702'
+        sample='20181001'
         myh5prob = '/prob0'
         exp = sprintf('%s_%s',sample,myh5prob(2:end));
         configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));

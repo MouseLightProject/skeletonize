@@ -3,4 +3,6 @@
 *.avi
 *.tiff
 *.swc
-*.sh
+*_prob0.sh
+compiled
+compare-2018-08-01-skeletonizations.py

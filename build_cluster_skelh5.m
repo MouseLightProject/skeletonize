@@ -1,2 +1,5 @@
+if ~exist(fullfile(pwd(), 'compiled'), 'file') ,
+    mkdir(fullfile(pwd(), 'compiled')) ;
+end
 mcc -m -R -nojvm -v cluster_skelh5.m -d ./compiled  -a ./common
-cp run_cluster_skelh5_at_janelia.sh compiled
+copyfile run_cluster_skelh5_at_janelia.sh ./compiled

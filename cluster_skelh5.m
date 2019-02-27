@@ -25,10 +25,10 @@ if ~isdeployed
 end
 if nargin<1
     if 1
-        sample='20180801'
+        sample='20181201'
         myh5prob = '/prob0'
         exp = sprintf('%s_%s',sample,myh5prob(2:end));
-        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5_repeat.cfg',exp));
+        configfile = fullfile(pwd,sprintf('./config_files/%s_config_skelh5.cfg',exp));
         if 1
             % likely breakpoint location
             mysh = sprintf('%s_%s.sh',datestr(now,'ddmmyyHHMM'),exp)

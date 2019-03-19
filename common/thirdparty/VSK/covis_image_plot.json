@@ -1,0 +1,55 @@
+{
+    "type": "imaging",
+    "format": "png",
+    "comments": "imaging isosurface for main endeavour site",
+    "verbose": 1,
+    "debug": 0,
+    "outpath": "../output",
+    "plot_bathy": 1,
+    "mask_bathy": 1,
+    "figure": 1,
+
+    "view": {
+        "azimuth": 170,
+        "elevation": 15.0
+     },
+
+    "mask": [
+        {  "type": "cone",
+           "radius": 10,
+           "height": 15,
+           "x": -30,
+           "y": -12,
+           "z": 10
+        },
+        {  "type": "cone",
+           "radius": 10,
+           "height": 15,
+           "x": -5,
+           "y": -12,
+           "z": 10
+        }
+    ],
+
+    "isosurface": [
+        {  "type": "vss",
+           "units": "db",
+           "value": -75,
+           "color": [0,0,1],
+           "alpha": 0.1
+        },
+        {  "type": "vss",
+           "units": "db",
+           "value": -65,
+           "color": [0.5,0,0.5],
+           "alpha": 0.2
+        },
+        {  "type": "vss",
+           "units": "db",
+           "value": -55,
+           "color": [1,0,0],
+           "alpha": 0.5
+        }
+    ]
+
+}

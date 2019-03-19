@@ -1,0 +1,32 @@
+{
+    "threshold": 1e-8,
+    "morph_kernel": 7,
+    "sample_num": 50,
+
+    "view": {
+        "azimuth": 170,
+        "elevation": 15.0
+     },
+
+    "skel_point": {
+        "min_dist": 12,
+        "max_num":  2
+     },
+
+    "lsm_range": {
+        "min": 20,
+	"max": 32
+     },
+
+    "result_save": {
+        "folder_base": "COVIS_results_",
+	"file1": "Skeleton_",
+	"file2": "Skeleton_Coordinates_",
+	"file3": "Fitting_Line_",
+        "file4": "Bending_Big_",
+        "file5": "Bending_Small_",
+	"file6": "Processing_Report_",
+     }
+
+  
+}

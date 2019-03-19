@@ -1,0 +1,78 @@
+{
+    "type": "imaging",
+    "comments": "main endeavour site",
+
+    "user": {
+        "verbose": 2,
+        "debug": 0,
+        "view": {
+            "azimuth": 37.5,
+            "elevation": 30.0
+        },
+        "outpath": "../output"
+
+    },
+
+    "sonar": {
+        "position": {
+            "easting": 492669.0,
+            "northing": 5310678.0,
+            "depth": -2205,
+            "altitude": 4.2,
+            "declination": 18.0,
+            "heading": 230.4 
+        }
+    },
+
+    "processing": {
+        "beamformer": {
+           "type": "fast"
+        },
+        "calibrate": {
+           "mode": "VSS"
+        },
+        "filter": {
+           "status": "on",
+           "type": "butterworth",
+           "bw": 2,
+           "order": 4,
+           "decimation": 4
+        },
+        "ping_combination": {
+           "mode": "diff"
+        },
+        "bounds": {
+            "pitch": {
+                "start": 10,
+                "stop": 62
+            },
+            "heading": {
+                "start": 235,
+                "stop": 235
+            },
+            "range": {
+                "start": 5,
+                "stop": 75
+            }
+        }
+    },
+
+    "grid": {
+        "type": "backscatter-cross-section", 
+        "shape": "rectangular", 
+        "units": {
+           "spatial": "meters",
+           "value": "1/meters"
+        },
+        "dimensions": 3,
+        "bounds": {
+            "xmin": -35, "xmax": 5,
+            "ymin": -25, "ymax": 5,
+            "zmin":  5, "zmax":  50
+        },
+        "spacing": {
+            "dx": 0.25, "dy": 0.25, "dz": 0.25
+        }
+    }
+
+}

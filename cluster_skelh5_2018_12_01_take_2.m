@@ -77,6 +77,9 @@ function generate_shell_script_that_bsubs_jobs(configfile,mysh,myh5prob)
     XYZ = unique([X(:),Y(:),Z(:)],'rows');
     in = inhull([bbox(:,1:2:end);bbox(:,2:2:end)],XYZ);
     in = any(reshape(in,[],2),2);
+    total_number_of_boxes = sum(in) ;
+    fprintf('Total number of boxes: %d\n', total_number_of_boxes) ;
+    
     %
     timelim = 10*60 ;
     finished = zeros(1,size(bbox,1));

@@ -118,20 +118,36 @@ function submit_bsub_jobs_for_skeletonization(configuration_file_name)
                                job_name, ...
                                '/dev/null', ...
                                raw_command_line);
-        fprintf('%s\n', bsub_command_line) ;                   
+        %fprintf('%s\n', bsub_command_line) ;                   
         return_code = system(bsub_command_line) ;  % submit the job!
         if return_code ~= 0 ,
             fprintf('There was a problem with the submission of the job to create file %s\n', output_file_path) ;
         end
         %fwrite(fid,mysub);
         jobs_submitted_count = jobs_submitted_count + 1 ;
-        fprintf('jobs submitted: %d\n', jobs_submitted_count) ;
+        %fprintf('jobs submitted: %d\n', jobs_submitted_count) ;
+        maybe_fprint_dot(false, jobs_submitted_count) ;
     end
+    maybe_fprint_dot(true, jobs_submitted_count) ;  % fprintf() final newline
     %fclose(fid) ;
     %unix(sprintf('chmod +x %s',bsub_script_file_path));
     fprintf('%d jobs submitted\n', jobs_submitted_count) ;
 end
 
+function maybe_fprint_dot(is_done, count)
+    if is_done ,
+        % print a newline, but only if with didn't just print a newline for
+        % the final iteration
+        if ~mod(count, 100) ,
+            fprintf('\n') ;
+        end
+    else
+        fprintf('.') ;
+        if mod(count, 100) ,
+            fprintf('\n') ;
+        end
+    end
+end
 
 % function result = determine_bsub_script_file_path(output_folder_path)
 %     did_determine_result = false ;

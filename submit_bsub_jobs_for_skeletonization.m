@@ -115,7 +115,7 @@ function submit_bsub_jobs_for_skeletonization(sample_date, sizethreshold, probTh
         job_name = sprintf('skel-%05d-%s',bounding_box_index,random_string_for_job_name);
         
         matlab_command_template = ...
-            'try; modpath; cluster_skelh5(''%s'', ''%s'', %s, ''%s'', ''%s'', %.18g, %.18g, %.18g); catch err; fprintf(2, ''%%s\\n'', err.getReport()); quit(1); end; quit(0);' ;
+            'try; modpath; cluster_skelh5(''%s'', ''%s'', %s, ''%s'', %.18g, %.18g, %.18g); catch err; fprintf(2, ''%%s\\n'', err.getReport()); quit(1); end; quit(0);' ;
         matlab_command = sprintf(matlab_command_template, ...
                                  whole_brain_p_map_h5_file_path, ...
                                  p_map_dataset_path, ...
@@ -147,7 +147,7 @@ function submit_bsub_jobs_for_skeletonization(sample_date, sizethreshold, probTh
                                         '-e', stderr_file_name, ...
                                         matlab_command_line_as_tokens } ;
         bsub_command_line_as_string = bash_command_line_from_token_list(bsub_command_line_as_tokens) ;                            
-        fprintf('%s\n', bsub_command_line_as_string) ;                   
+        fprintf('%s\n', bsub_command_line_as_string) ;
         return_code = system(bsub_command_line_as_string) ;  % submit the job!
         %return_code = 0 ;  % for testing
         if return_code ~= 0 ,

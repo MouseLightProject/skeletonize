@@ -8,3 +8,6 @@ compiled
 run_cluster_skelh5_at_janelia.sh
 compare-2018-08-01-skeletonizations.py
 __pycache__
+*.stdout
+*.stderr
+*.stdouterr

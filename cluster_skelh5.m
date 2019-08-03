@@ -1,4 +1,4 @@
-function [inds] = cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, fullh)
+function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, fullh)
     %CLUSTER_SKELH5 crop a section from h5 and skeletonize it then writes it in
     %a text file for cluster jobs or returns an array for local tasks
     %
@@ -35,11 +35,11 @@ function [inds] = cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, pro
 
     brainSize = h5parser(myh5, myh5prob);
 
-    if isdeployed
-        inds = [];
+    if isdeployed ,
         BB = eval(BB);
-    else
-        BB = eval(BB);
+        sizethreshold = eval(sizethreshold) ;
+        probThr = eval(probThr) ;
+        fullh = eval(fullh) ;
     end
 
     %%

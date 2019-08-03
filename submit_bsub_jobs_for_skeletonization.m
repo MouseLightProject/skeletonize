@@ -1,4 +1,9 @@
-function submit_bsub_jobs_for_skeletonization(configuration_file_name)
+function submit_bsub_jobs_for_skeletonization(sample_date, sizethreshold, probThr, fullh)
+    sample_date
+    sizethreshold
+    probThr
+    fullh
+    
     %qsub -pe batch 4 -l short=true -N tile_test -j y -o ~/logs -b y -cwd -V './compiledfiles_mytest/mytest > output_mytest.log'
     %%
     % mcc -m -R -nojvm -v cluster_skelh5.m -d ./compiled/compiledfiles_skelh5  -a ./common
@@ -9,10 +14,14 @@ function submit_bsub_jobs_for_skeletonization(configuration_file_name)
     %clc
     numcores = 8;
     % mysh = '20150619_oct12config_skelh5_miss.sh';
-    opt = configparser(configuration_file_name);
-    output_folder_path = opt.outfolder;
-    p_map_dataset_path = opt.h5prob ;
-    whole_brain_p_map_h5_file_path = opt.inputh5 ;
+    %opt = configparser(configuration_file_name);
+    %output_folder_path = opt.outfolder;
+    output_folder_path = sprintf('/nrs/mouselight/cluster/classifierOutputs/%s/skeletonization', sample_date) ;
+    %p_map_dataset_path = opt.h5prob ;
+    p_map_dataset_path = '/prob0' ;    
+    %whole_brain_p_map_h5_file_path = opt.inputh5 ;
+    whole_brain_p_map_h5_file_path = ...
+        sprintf('/nrs/mouselight/cluster/classifierOutputs/%s/whole-brain-p-map-as-h5/%s-whole-brain-p-map.h5', sample_date, sample_date) ;
 
     %bsub_script_file_path = determine_bsub_script_file_path(output_folder_path) ;
     
@@ -30,15 +39,15 @@ function submit_bsub_jobs_for_skeletonization(configuration_file_name)
     cropSize = round(1000./chunk_dims).*chunk_dims;
     % cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
     % to get %10 overlap overhead use multiple of 10
-    fullh = chunk_dims; % add 1 to make it odd (heuristic)
+    fullh_for_create_ovelap_box = chunk_dims; % add 1 to make it odd (heuristic)
     %
     [~,whole_brain_p_map_h5_base_name,~] = fileparts(whole_brain_p_map_h5_file_path) ;
     % outfolder = '/nobackup2/mouselight/cluster/GN1_autorecon_05/'
     if ~exist(output_folder_path, 'dir') ,
-        mkdir(output_folder_path)
+        mkdir(output_folder_path) ;
     end
-    unix(sprintf('umask g+rxw %s',output_folder_path))
-    unix(sprintf('chmod g+rwx %s',output_folder_path));
+    unix(sprintf('umask g+rxw %s',output_folder_path)) ;
+    unix(sprintf('chmod g+rwx %s',output_folder_path)) ;
     %%
     %
     % rmdir(outfolder)
@@ -60,7 +69,7 @@ function submit_bsub_jobs_for_skeletonization(configuration_file_name)
     sLength = 10;
     %-o /dev/null
 
-    bbox = createOverlapBox(brainSize,cropSize,fullh);
+    bbox = createOverlapBox(brainSize,cropSize,fullh_for_create_ovelap_box);
     % bbox = createOverlapBox(brainSize,[cropSize cropSize cropSize],fullh);
     %
     BBoxes = RR(:,[1 4 2 5 3 6])+1;
@@ -103,21 +112,25 @@ function submit_bsub_jobs_for_skeletonization(configuration_file_name)
                                    BB(1:2:end), ...
                                    BB(2:2:end)) ;
         output_file_path = fullfile(output_folder_path, output_file_name) ;
-        job_name = sprintf('skel_%05d-%s',bounding_box_index,random_string_for_job_name);
+        job_name = sprintf('skel-%05d-%s',bounding_box_index,random_string_for_job_name);
         
         matlab_command_template = ...
-            'try; modpath; cluster_skelh5(''%s'', ''%s'', %s, ''%s'', ''%s''); catch err; fprintf(2, ''%%s\\n'', err.getReport()); quit(1); end; quit(0);' ;
+            'try; modpath; cluster_skelh5(''%s'', ''%s'', %s, ''%s'', ''%s'', %.18g, %.18g, %.18g); catch err; fprintf(2, ''%%s\\n'', err.getReport()); quit(1); end; quit(0);' ;
         matlab_command = sprintf(matlab_command_template, ...
                                  whole_brain_p_map_h5_file_path, ...
                                  p_map_dataset_path, ...
                                  mat2str(BB), ...
                                  output_file_path, ...
-                                 configuration_file_name) ;
+                                 sizethreshold, ...
+                                 probThr, ...
+                                 fullh) ;
         matlab_command_line_as_tokens = { '/misc/local/matlab-2018b/bin/matlab',  '-nodisplay',  '-r', matlab_command } ;  
         %matlab_command_line_as_string = bash_command_line_from_token_list(matlab_command_line_as_tokens) ;
         % mysub = sprintf('qsub -pe batch %d -l d_rt=%d -N %s -j y -o /dev/null -b y -cwd -V %s\n',numcores,timelim,name,args);
-        stdout_file_name = sprintf('%s.stdout', job_name) ;
-        stderr_file_name = sprintf('%s.stderr', job_name) ;        
+        %stdout_file_name = sprintf('%s.stdout', job_name) ;
+        %stderr_file_name = sprintf('%s.stderr', job_name) ;        
+        stdout_file_name = sprintf('/dev/null') ;
+        stderr_file_name = sprintf('/dev/null') ;
 %         bsub_command_line = sprintf('bsub -P mouselight -n%d -We %d -J %s -o %s -e %s "%s"', ...
 %                                     numcores, ...
 %                                     time_limit_in_seconds/60, ...

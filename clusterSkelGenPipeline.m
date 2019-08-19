@@ -42,25 +42,32 @@ XYZ = unique([X(:),Y(:),Z(:)],'rows');
 in = inhull([bbox(:,1:2:end);bbox(:,2:2:end)],XYZ);
 in = any(reshape(in,[],2),2);
 
+numTilesMax = size(bbox,1);
+
 fid = fopen(pipelineInputFile,'w');
 
 pf = struct('major', 1, 'minor', 0);
 pi = struct('inputFile', strrep(inputFile, '\', '\\'), 'dataset', dataset);
-ts = struct('id', {},'relativePath', {}, 'isComplete', {}, 'position', {}, 'step', {});
 
-for idx = 1:size(bbox,1)
+ts = struct('id', num2cell(1:numTilesMax), ...
+    'relativePath', arrayfun(@(x) sprintf('%05d', x), 1:numTilesMax, 'UniformOutput', false), ...
+    'isComplete', true, ...
+    'position', struct('x', {}, 'y', {}, 'z', {}),...
+    'step', struct('x', {}, 'y', {}, 'z', {}));
+
+for idx = 1:numTilesMax
     BB = bbox(idx,:);
     
     % check if BB is outsize of BBoxes
-    if ~in(idx) 
+    if ~in(idx)
         continue
     end
     
-    position = struct('x', BB(1), 'y', BB(3), 'z', BB(5));
-    step = struct('x', BB(2), 'y', BB(4), 'z', BB(6));
-    ts(end + 1) = struct('id', idx,'relativePath', sprintf('%06d', idx), 'isComplete', true, ...
-        'position', position,  'step', step);
+    ts(idx).position = struct('x', BB(1), 'y', BB(3), 'z', BB(5));
+    ts(idx).step = struct('x', BB(2), 'y', BB(4), 'z', BB(6));
 end
+
+ts = ts(~cellfun(@isempty, {ts.position}));
 
 fprintf(fid, jsonencode(struct('pipelineFormat', pf, 'projectInfo', pi, 'tiles', ts)));
 

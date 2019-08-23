@@ -1,23 +1,32 @@
-function clusterSkelGenPipeline(inputFile, dataset, pipelineInputFile)
+function clusterSkelGenPipeline(inputFile, pipelineInputFile)
 % CLUSTERSKELGENPIPELINE Create Mouse Light Pipeline input file.
 %
-%   CLUSTERSKELGENPIPELINE(INPUTFILE, DATASET, PIPELINEINPUTPUTFILE) creates
-%   a Mouse Light Pipeline input file for the given HDF5 source file.
+%   CLUSTERSKELGENPIPELINE(INPUTFILE, DATASET, PIPELINEINPUTPUTFILE) creates a Mouse Light Pipeline input file for the
+%   given HDF5 source file.
 %
-%   This is an alternative to the portion of the original cluster_skelh5.m
-%   that generated a batch file for submitting all jobs to the cluster.  It
-%   generates the required Mouse Light Pipeline input file for processing.
+%   This is an alternative to the portion of the original cluster_skelh5.m that generated a batch file for submitting
+%   all jobs to the cluster.  It generates the required Mouse Light Pipeline input file for processing.
 %
 %   INPUT PARAMETERS:
-%       INPUTFILE:            source HDF5 file.
-%       DATASET:              dataset name in source file.
+%       INPUTFILE:            absolute path to configuration file (see notes). 
+%       DATASET:              dataset name in source file. 
 %       PIPELINEINPUTPUTFILE: output Pipeline input file name.
 %
+%   It assumed the support files in the skeletonization repository (./common and downstream) are on the MATLAB path.
+%
+%   Notes:
+%       The path to the configuration file and the path specified in the configuration file to the HDF5 data file will 
+%       be passed from the pipeline to the skeletonization task.  If the path on the system used to generate this file
+%       is different than the pipeline system has access to (e.g., this script is used on Windows and accesses nrs and
+%       dm11 via a mapped drive or \\dm11... and \\nrs vs. /nrs/... and /groups/... as seen by the pipeline) you will
+%       need to modify the paths in the customParameters entry in the generated JSON file.
+%
 %   Examples:
-%       clusterSkelGenPipeline('/nrs/mouselight/cluster/classifierOutputs/2017-09-25/20170925_prob0/20170925_prob0_lev-6_chunk-111_111_masked-0.h5',
-%       '/prob0', 'pipeline-input.json');
+%       clusterSkelGenPipeline('/groups/mouselight/mouselight/pipeline-systems/support/skeletonization/config_files/20170925_prob0_config_skelh5.cfg', 'pipeline-input.json');
 
-[brainSize,RR,chunk_dims] = h5parser(inputFile,dataset);
+opt = configparser(inputFile);
+
+[brainSize,RR,chunk_dims] = h5parser(opt.inputh5, opt.h5prob);
 
 % get a multiple of chunksize that is around 1000^3
 cropSize = round(1000./chunk_dims).*chunk_dims;
@@ -47,7 +56,7 @@ numTilesMax = size(bbox,1);
 fid = fopen(pipelineInputFile,'w');
 
 pf = struct('major', 1, 'minor', 0);
-pi = struct('inputFile', strrep(inputFile, '\', '\\'), 'dataset', dataset);
+pi = struct('customParameters', struct('inputFile', strrep(opt.inputh5, '\', '\\'), 'dataset', opt.h5prob, 'configurationFile',  strrep(inputFile, '\', '\\')));
 
 ts = struct('id', num2cell(1:numTilesMax), ...
     'relativePath', arrayfun(@(x) sprintf('%05d', x), 1:numTilesMax, 'UniformOutput', false), ...

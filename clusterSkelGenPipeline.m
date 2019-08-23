@@ -1,4 +1,4 @@
-function clusterSkelGenPipeline(inputFile, pipelineInputFile)
+function varargout = clusterSkelGenPipeline(inputFile, pipelineInputFile)
 % CLUSTERSKELGENPIPELINE Create Mouse Light Pipeline input file.
 %
 %   CLUSTERSKELGENPIPELINE(INPUTFILE, DATASET, PIPELINEINPUTPUTFILE) creates a Mouse Light Pipeline input file for the
@@ -8,14 +8,14 @@ function clusterSkelGenPipeline(inputFile, pipelineInputFile)
 %   all jobs to the cluster.  It generates the required Mouse Light Pipeline input file for processing.
 %
 %   INPUT PARAMETERS:
-%       INPUTFILE:            absolute path to configuration file (see notes). 
-%       DATASET:              dataset name in source file. 
+%       INPUTFILE:            absolute path to configuration file (see notes).
+%       DATASET:              dataset name in source file.
 %       PIPELINEINPUTPUTFILE: output Pipeline input file name.
 %
 %   It assumed the support files in the skeletonization repository (./common and downstream) are on the MATLAB path.
 %
 %   Notes:
-%       The path to the configuration file and the path specified in the configuration file to the HDF5 data file will 
+%       The path to the configuration file and the path specified in the configuration file to the HDF5 data file will
 %       be passed from the pipeline to the skeletonization task.  If the path on the system used to generate this file
 %       is different than the pipeline system has access to (e.g., this script is used on Windows and accesses nrs and
 %       dm11 via a mapped drive or \\dm11... and \\nrs vs. /nrs/... and /groups/... as seen by the pipeline) you will
@@ -55,8 +55,7 @@ numTilesMax = size(bbox,1);
 
 fid = fopen(pipelineInputFile,'w');
 
-pf = struct('major', 1, 'minor', 0);
-pi = struct('customParameters', struct('inputFile', strrep(opt.inputh5, '\', '\\'), 'dataset', opt.h5prob, 'configurationFile',  strrep(inputFile, '\', '\\')));
+projectFormat = struct('major', 1, 'minor', 0);
 
 ts = struct('id', num2cell(1:numTilesMax), ...
     'relativePath', arrayfun(@(x) sprintf('%05d', x), 1:numTilesMax, 'UniformOutput', false), ...
@@ -78,6 +77,21 @@ end
 
 ts = ts(~cellfun(@isempty, {ts.position}));
 
-fprintf(fid, jsonencode(struct('pipelineFormat', pf, 'projectInfo', pi, 'tiles', ts)));
+position = [ts.position];
+x = [position.x];
+y = [position.y];
+z = [position.z];
+
+projectInfo = struct('customParameters', struct('inputFile', strrep(opt.inputh5, '\', '\\'), 'dataset', opt.h5prob, 'configurationFile',  strrep(inputFile, '\', '\\')));
+
+content = struct('pipelineFormat', projectFormat, 'projectInfo', projectInfo,  ...
+    'extents', struct('minimumX', min(x), 'maximumX', max(x), 'minimumY', min(y), 'maximumY', max(y),'minimumZ', min(z), 'maximumZ', max(z)), ...
+    'tiles', ts);
+
+fprintf(fid, jsonencode(content));
 
 fclose(fid);
+
+if nargout > 0
+    varargout{1} = content;
+end

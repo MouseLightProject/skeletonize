@@ -11,3 +11,5 @@ __pycache__
 *.stdout
 *.stderr
 *.stdouterr
+*.out.txt
+

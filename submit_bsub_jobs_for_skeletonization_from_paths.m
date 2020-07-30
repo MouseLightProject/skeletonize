@@ -5,122 +5,97 @@ function submit_bsub_jobs_for_skeletonization_from_paths(output_folder_path, who
     probThr
     fullh
     
-    %qsub -pe batch 4 -l short=true -N tile_test -j y -o ~/logs -b y -cwd -V './compiledfiles_mytest/mytest > output_mytest.log'
-    %%
-    % mcc -m -R -nojvm -v cluster_skelh5.m -d ./compiled/compiledfiles_skelh5  -a ./common
-    % mcc -m -R -nojvm -v /groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/cluster_skelh5.m -d /groups/mousebrainmicro/home/base/CODE/MATLAB/compiledfunctions/skeletonization -a /groups/mousebrainmicro/home/base/CODE/MATLAB/pipeline/skeletonize/common
-    %%
-    %addpath(genpath('./common'))
-    % clear all
-    %clc
-    numcores = 8;
-    % mysh = '20150619_oct12config_skelh5_miss.sh';
-    %opt = configparser(configuration_file_name);
-    %output_folder_path = opt.outfolder;
-    %output_folder_path = sprintf('/nrs/mouselight/cluster/classifierOutputs/%s/skeletonization', sample_date) ;
-    %p_map_dataset_path = opt.h5prob ;
+    core_count_for_each_bjob = 8;
     p_map_dataset_path = '/prob0' ;    
-    %whole_brain_p_map_h5_file_path = opt.inputh5 ;
-    %whole_brain_p_map_h5_file_path = ...
-    %    sprintf('/nrs/mouselight/cluster/classifierOutputs/%s/whole-brain-p-map-as-h5/%s-whole-brain-p-map.h5', sample_date, sample_date) ;
-
-    %bsub_script_file_path = determine_bsub_script_file_path(output_folder_path) ;
     
-    %
-    % myh5 = '/srv/data/probGN1_lvl-5.h5'
-    % myh5 = '/tier2/mousebrainmicro/mousebrainmicro/cluster/hdf5test/merge_probGN1_lvl-5.h5'
-    % myh5prob='/renderedVolume'
-    % myh5 = '/data3/renderedData/2015-07-11/2015-07-11-G3457_lev-3.h5'
-%     if nargin<3 ,
-%         myh5prob = '/prob0' ;
-%     end
-    % likely breakpoint location
-    [brainSize,RR,chunk_dims] = h5parser(whole_brain_p_map_h5_file_path, p_map_dataset_path);
-    % get a multiple of chunksize that is around 1000^3
-    cropSize = round(1000./chunk_dims).*chunk_dims;
-    % cropSize = 10*chunk_dims;%inputinfo.Datasets.ChunkSize;
+    [full_stack_shape_ijk, has_ladenness_info, laden_octree_chunk_bounding_boxes_ijk0, h5_chunk_shape_ijk] = ...
+        h5parser_new(whole_brain_p_map_h5_file_path, p_map_dataset_path) ;
+    
+    % get a multiple of h5_chunk_shape_ijk that is around 1000^3
+    analysis_chunk_shape_ijk = round(1000./h5_chunk_shape_ijk).*h5_chunk_shape_ijk;
+    
     % to get %10 overlap overhead use multiple of 10
-    fullh_for_create_ovelap_box = chunk_dims; % add 1 to make it odd (heuristic)
-    %
+    fullh_for_create_ovelap_box = h5_chunk_shape_ijk ; % add 1 to make it odd (heuristic)
+    
     [~,whole_brain_p_map_h5_base_name,~] = fileparts(whole_brain_p_map_h5_file_path) ;
-    % outfolder = '/nobackup2/mouselight/cluster/GN1_autorecon_05/'
+    
     if ~exist(output_folder_path, 'dir') ,
         mkdir(output_folder_path) ;
     end
+    
     unix(sprintf('umask g+rxw %s',output_folder_path)) ;
     unix(sprintf('chmod g+rwx %s',output_folder_path)) ;
-    %%
-    %
-    % rmdir(outfolder)
+    
     s = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    %old = 0;
-    % if old
-    %     compiledfunc = '/groups/mousebrainmicro/home/base/CODE/MATLAB/recontree/compiled/compiledfiles_skelh5/cluster_skelh5'
-    % else
-    %     compiledfunc = '/groups/mousebrainmicro/home/base/CODE/MATLAB/compiledfunctions/skeletonization/cluster_skelh5'
-    % end
-    %script_file_path = mfilename('fullpath') ;
-    %script_folder_path = fileparts(script_file_path) ;
-    %compiled_function_front_end_script_path = fullfile(script_folder_path, 'compiled', 'run_cluster_skelh5_at_janelia.sh') ;
-
 
     %find number of random characters to choose from
     numRands = length(s);
-    %specify length of random string to generate
     sLength = 10;
-    %-o /dev/null
 
-    bbox = createOverlapBox(brainSize,cropSize,fullh_for_create_ovelap_box);
-    % bbox = createOverlapBox(brainSize,[cropSize cropSize cropSize],fullh);
-    %
-    BBoxes = RR(:,[1 4 2 5 3 6])+1;
-    X = BBoxes(:,1:2);
-    Y = BBoxes(:,3:4);
-    Z = BBoxes(:,5:6);
-    XYZ = unique([X(:),Y(:),Z(:)],'rows');
-    in = inhull([bbox(:,1:2:end);bbox(:,2:2:end)],XYZ);
-    in = any(reshape(in,[],2),2);
-    total_number_of_boxes = sum(in) ;
-    fprintf('Total number of boxes: %d\n', total_number_of_boxes) ;
+    % Construct a set of overlapped chunks for analysis
+    padded_analysis_chunk_bounding_boxes_ijk1 = createOverlapBox(full_stack_shape_ijk, analysis_chunk_shape_ijk, fullh_for_create_ovelap_box) ;
+    analysis_chunk_count = size(padded_analysis_chunk_bounding_boxes_ijk1, 1) ;
+    fprintf('Count of analysis chunks: %d\n', analysis_chunk_count) ;
     
-    %
-    time_limit_in_seconds = 10*60 ;
-    is_finished = false(1,size(bbox,1));
-
-    % check any missing file
+    % Figure out which of the analysis chunks overlap with the laden octree
+    % chunks, erring on the side of caution.
+    if has_ladenness_info , 
+        BBoxes = laden_octree_chunk_bounding_boxes_ijk0(:,[1 4 2 5 3 6])+1 ;
+        X = BBoxes(:,1:2);
+        Y = BBoxes(:,3:4);
+        Z = BBoxes(:,5:6);
+        laden_octree_chunk_bounding_box_corners_ijk1 = unique([X(:),Y(:),Z(:)],'rows') ;
+        padded_analysis_chunk_bounding_box_corners_ijk1 = ...
+            [ padded_analysis_chunk_bounding_boxes_ijk1(:,1:2:end) ; ...
+              padded_analysis_chunk_bounding_boxes_ijk1(:,2:2:end) ] ;
+        is_padded_analysis_chunk_bounding_box_corner_in_laden_hull = ...
+            inhull(padded_analysis_chunk_bounding_box_corners_ijk1, ...
+                   laden_octree_chunk_bounding_box_corners_ijk1) ;
+        is_analysis_chunk_laden = any(reshape(is_padded_analysis_chunk_bounding_box_corner_in_laden_hull, [analysis_chunk_count 2]),2) ;
+    else
+        is_analysis_chunk_laden = true(analysis_chunk_count, 1) ;
+    end
+    laden_analysis_chunk_count = sum(is_analysis_chunk_laden) ;
+    fprintf('Count of laden analysis chunks: %d\n', laden_analysis_chunk_count) ;
+    
+    % Figure out which ones have already be analysed
+    is_analysis_chunk_already_skeletonized = false(analysis_chunk_count, 1) ;
     output_text_file_template_path = fullfile(output_folder_path, '*.txt') ;
     extant_output_text_file_names = simple_dir(output_text_file_template_path) ;
     for ii = 1:length(extant_output_text_file_names) ,
         extant_output_text_file_name = extant_output_text_file_names{ii} ;
         bbox_index = bounding_box_index_from_file_name(extant_output_text_file_name) ;
-        is_finished(bbox_index) = true ;
+        is_analysis_chunk_already_skeletonized(bbox_index) = true ;
     end
-    %sum(~is_finished)
-    %%
-    % likely breakpoint location
-    jobs_submitted_count=0;
-    %fid = fopen(bsub_script_file_path,'w');
-    for bounding_box_index = 1:size(bbox,1)
-        BB = bbox(bounding_box_index, :) ;
-        % check if BB is outsize of BBoxes
-        if ~in(bounding_box_index) || is_finished(bounding_box_index) ,  % skip
+    fprintf('Count of already-skeletonized analysis chunks: %d\n', sum(is_analysis_chunk_already_skeletonized)) ;
+
+    % Determine which chunks need to be skeletonized
+    does_analysis_chunk_need_to_be_run = is_analysis_chunk_laden & ~is_analysis_chunk_already_skeletonized ;
+    fprintf('Count of analysis chunks to be run: %d\n', sum(does_analysis_chunk_need_to_be_run)) ;
+    
+    % Submit the jobs
+    time_limit_in_seconds = 10*60 ;
+    jobs_submitted_count = 0 ;
+    for analysis_chunk_index = 1:analysis_chunk_count ,
+        if ~does_analysis_chunk_need_to_be_run(analysis_chunk_index) ,  % skip
             continue
         end
+        padded_analysis_chunk_bounding_box_ijk1 = padded_analysis_chunk_bounding_boxes_ijk1(analysis_chunk_index, :) ;
         random_string_for_job_name = s( ceil(rand(1,sLength)*numRands) ) ;
         output_file_name = sprintf('%s_idx-%05d_stxyzendxyz-%d_%d_%d_%d_%d_%d.txt', ...
                                    whole_brain_p_map_h5_base_name, ...
-                                   bounding_box_index, ...
-                                   BB(1:2:end), ...
-                                   BB(2:2:end)) ;
+                                   analysis_chunk_index, ...
+                                   padded_analysis_chunk_bounding_box_ijk1(1:2:end), ...
+                                   padded_analysis_chunk_bounding_box_ijk1(2:2:end)) ;
         output_file_path = fullfile(output_folder_path, output_file_name) ;
-        job_name = sprintf('skel-%05d-%s',bounding_box_index,random_string_for_job_name);
+        job_name = sprintf('skel-%05d-%s', analysis_chunk_index, random_string_for_job_name) ;
         
         matlab_command_template = ...
             'try; modpath; cluster_skelh5(''%s'', ''%s'', %s, ''%s'', %.18g, %.18g, %.18g); catch err; fprintf(2, ''%%s\\n'', err.getReport()); quit(1); end; quit(0);' ;
         matlab_command = sprintf(matlab_command_template, ...
                                  whole_brain_p_map_h5_file_path, ...
                                  p_map_dataset_path, ...
-                                 mat2str(BB), ...
+                                 mat2str(padded_analysis_chunk_bounding_box_ijk1), ...
                                  output_file_path, ...
                                  sizethreshold, ...
                                  probThr, ...
@@ -128,10 +103,10 @@ function submit_bsub_jobs_for_skeletonization_from_paths(output_folder_path, who
         matlab_command_line_as_tokens = { '/misc/local/matlab-2018b/bin/matlab',  '-nodisplay',  '-r', matlab_command } ;  
         %matlab_command_line_as_string = bash_command_line_from_token_list(matlab_command_line_as_tokens) ;
         % mysub = sprintf('qsub -pe batch %d -l d_rt=%d -N %s -j y -o /dev/null -b y -cwd -V %s\n',numcores,timelim,name,args);
-        %stdout_file_name = sprintf('%s.stdout', job_name) ;
-        %stderr_file_name = sprintf('%s.stderr', job_name) ;        
-        stdout_file_name = sprintf('/dev/null') ;
-        stderr_file_name = sprintf('/dev/null') ;
+        stdout_file_name = sprintf('%s.out.txt', job_name) ;
+        stderr_file_name = sprintf('%s.out.txt', job_name) ;        
+        %stdout_file_name = sprintf('/dev/null') ;
+        %stderr_file_name = sprintf('/dev/null') ;
 %         bsub_command_line = sprintf('bsub -P mouselight -n%d -We %d -J %s -o %s -e %s "%s"', ...
 %                                     numcores, ...
 %                                     time_limit_in_seconds/60, ...
@@ -141,11 +116,11 @@ function submit_bsub_jobs_for_skeletonization_from_paths(output_folder_path, who
 %                                     raw_command_line);
         bsub_command_line_as_tokens = { 'bsub', ...
                                         '-P', 'mouselight', ...
-                                        '-n', num2str(numcores), ...
+                                        '-n', num2str(core_count_for_each_bjob), ...
                                         '-We', num2str(time_limit_in_seconds/60), ...
                                         '-J', job_name, ...
-                                        '-o', stdout_file_name, ...
-                                        '-e', stderr_file_name, ...
+                                        '-oo', stdout_file_name, ...
+                                        '-eo', stderr_file_name, ...
                                         matlab_command_line_as_tokens } ;
         bsub_command_line_as_string = bash_command_line_from_token_list(bsub_command_line_as_tokens) ;                            
         fprintf('%s\n', bsub_command_line_as_string) ;

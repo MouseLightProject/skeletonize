@@ -1,0 +1,16 @@
+sample_date = '2018-10-01-will-p-map' ;
+
+collect_skeleton_txts_given_sample_date(sample_date) ;
+
+%whole_brain_p_map_h5_file_path = ...
+%    sprintf('/groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/%s/whole-brain-p-map-as-h5/whole-brain-p-map.h5', sample_date) ;
+%reconstructions_folder_path = sprintf('/groups/mousebrainmicro/mousebrainmicro/cluster/Reconstructions/%s', ...
+%                                      sample_date) ;
+%skeletonization_folder_path = fullfile(reconstructions_folder_path, 'skeletonization') ;
+%graph_as_mat_file_path = fullfile(reconstructions_folder_path, 'skeleton-graph.mat') ;
+%graph_as_single_text_file_path = fullfile(reconstructions_folder_path, 'skeleton-graph.txt') ;
+%
+%collect_skeleton_txts_given_file_paths(graph_as_mat_file_path, ...
+%                                       graph_as_single_text_file_path, ...
+%                                       whole_brain_p_map_h5_file_path, ...
+%                                       skeletonization_folder_path) ;

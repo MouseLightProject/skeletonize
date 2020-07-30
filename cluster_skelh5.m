@@ -33,7 +33,7 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
     %     % to get %10 overlap overhead use multiple of 10
     %     fullh = chunk_dims; % add 1 to make it odd (heuristic)
 
-    brainSize = h5parser(myh5, myh5prob);
+    brainSize = h5parser_new(myh5, myh5prob);
 
     if isdeployed ,
         BB = eval(BB);

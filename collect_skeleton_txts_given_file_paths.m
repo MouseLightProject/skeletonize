@@ -4,7 +4,7 @@ function collect_skeleton_txts_given_file_paths(graph_as_mat_file_path, ...
                                                 skeletonization_folder_path)
     
     if ~exist(graph_as_mat_file_path, 'file') || ~exist(graph_as_single_text_file_path, 'file') ,
-        whole_brain_stack_shape = h5parser(whole_brain_h5_p_map_file_path, '/prob0') ;
+        whole_brain_stack_shape = h5parser_new(whole_brain_h5_p_map_file_path, '/prob0') ;
         [skeleton_ijks,~,A,~] = skel2graph(skeletonization_folder_path, whole_brain_stack_shape) ;
     end        
     

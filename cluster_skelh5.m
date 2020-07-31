@@ -20,9 +20,6 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
 
     % $Author: base $	$Date: 2016/03/23 11:04:02 $	$Revision: 0.1 $
     % Copyright: HHMI 2016
-    if ~isdeployed
-        addpath(genpath('./common'))
-    end
 
     %opt = configparser(configfile);
     %probThr = opt.probThr;
@@ -35,13 +32,6 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
 
     brainSize = h5parser_new(myh5, myh5prob);
 
-    if isdeployed ,
-        BB = eval(BB);
-        sizethreshold = eval(sizethreshold) ;
-        probThr = eval(probThr) ;
-        fullh = eval(fullh) ;
-    end
-
     %%
     starts = BB(1:2:end);
     ends = BB(2:2:end);
@@ -50,12 +40,12 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
     Io = squeeze(h5read(myh5,myh5prob,starts,datasiz));
     % Io = squeeze(h5read(myh5,myh5prob,starts+[500 300 100],datasiz));
     % figure, imshow(squeeze(max(Io,[],3))',[]),
-    if ~any(Io(:))
-        if isdeployed || true
-            %% touch file
-            fileID = fopen(outfile,'w');
-            fclose(fileID);
-        end
+    if any(any(any(Io)))        
+        %fprintf('Io is not all-zero!\n') ;
+    else
+        % touch file
+        fileID = fopen(outfile,'w');
+        fclose(fileID);
         return
     end
 
@@ -63,15 +53,13 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
     Io = smooth3(Io,'gaussian',[3 3 1]);
     Io = Io>probThr;
     %%
-    if ~any(Io(:))
-        if isdeployed || true
-            %% touch file
-            fileID = fopen(outfile,'w');
-            fclose(fileID);
-        end
+    if ~any(any(any(Io))) ,
+        % touch file
+        fileID = fopen(outfile,'w');
+        fclose(fileID);
         return
     end
-    %% cleanup image
+    % cleanup image
     s  = regionprops(Io, 'centroid','PixelIdxList','Area');
 %     if 0
 %         % fast
@@ -91,12 +79,10 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
     end
 %     end
     %%
-    if ~any(Io(:))
-        if isdeployed || true
-            %% touch file
-            fileID = fopen(outfile,'w');
-            fclose(fileID);
-        end
+    if ~any(any(any(Io))) ,
+        % touch file
+        fileID = fopen(outfile,'w');
+        fclose(fileID);
         return
     end
     %%
@@ -125,12 +111,10 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
     % get the edge pairs
     dims = size(skel);
     skelinds = find(skel);
-    if isempty(skelinds)
+    if isempty(skelinds) ,
         % touch file
-        if isdeployed || true
-            fileID = fopen(outfile,'w');
-            fclose(fileID);
-        end
+        fileID = fopen(outfile,'w');
+        fclose(fileID);
         return
     end
     %%
@@ -174,7 +158,7 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
         inds(:,ii) = sub2ind(brainSize,subs(:,1),subs(:,2),subs(:,3)); % convert to original inds
     end
     %%
-    if ~isdeployed && do_viz
+    if do_viz ,
         clear Subs1 Subs2
         [Subs1(:,1),Subs1(:,2),Subs1(:,3)]=ind2sub(brainSize,inds(:,1));
         [Subs2(:,1),Subs2(:,2),Subs2(:,3)]=ind2sub(brainSize,inds(:,2));
@@ -190,16 +174,14 @@ function cluster_skelh5(myh5, myh5prob, BB, outfile, sizethreshold, probThr, ful
     % connG = sparse(edges_(:,1),edges_(:,2),1,max(edges_(:)),max(edges_(:)));
 
     %%
-    if isdeployed || true
-        %%
-        fileID = fopen(outfile,'w');
-        if size(inds,2)==2
-            fprintf(fileID,'%d %d\n',inds');
-        else
-            fprintf(fileID,'%d %d %.2f\n',inds');
-        end
-        fclose(fileID);
+    %%
+    fileID = fopen(outfile,'w');
+    if size(inds,2)==2
+        fprintf(fileID,'%d %d\n',inds');
+    else
+        fprintf(fileID,'%d %d %.2f\n',inds');
     end
+    fclose(fileID);
 end  % function
 
 % function runlocal(configfile,myh5prob)

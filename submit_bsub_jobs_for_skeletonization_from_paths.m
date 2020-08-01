@@ -80,7 +80,7 @@ function submit_bsub_jobs_for_skeletonization_from_paths(output_folder_path, who
     bsub_options = sprintf('-P mouselight -We %s', num2str(time_limit_in_seconds/60)) ;
     bqueue = bqueue_type(do_actually_submit, bsub_options, core_count_for_each_bjob, maximum_running_slot_count) ;
     jobs_submitted_count = 0 ;
-    batch_function = @cluster_skel5 ;
+    batch_function = @cluster_skelh5 ;
     for analysis_chunk_index = 1:analysis_chunk_count ,
         if ~does_analysis_chunk_need_to_be_run(analysis_chunk_index) ,  % skip
             continue

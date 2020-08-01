@@ -7,7 +7,7 @@ sizethreshold = 300 ;
 probThr = 100 ;
 fullh = 15 ;
 
-do_actually_submit = false ;
+do_actually_submit = true ;
 maximum_running_slot_count = 1500 ;
 
 submit_bsub_jobs_for_skeletonization_from_paths(output_folder_path, ...
